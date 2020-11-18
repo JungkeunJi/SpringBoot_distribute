@@ -7,9 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class DistributeApplication {
 
     public static void main(String[] args) {
-        System.out.println("hello");
         SpringApplication.run(DistributeApplication.class, args);
-
     }
 
 }

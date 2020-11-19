@@ -5,10 +5,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
+import javax.persistence.*;
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -19,4 +18,20 @@ public class Distribution {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    private Integer userId;
+
+    private String roomId;
+
+    private Long totalMoney;
+
+    private int totalDistributeNum;
+
+    @Column(unique = true)
+    private String token;
+
+    private LocalDateTime registeredAt;
+
+    @OneToMany(fetch = FetchType.LAZY, mappedBy = "distribution")
+    private List<DistributionState> distributionStates;
 }

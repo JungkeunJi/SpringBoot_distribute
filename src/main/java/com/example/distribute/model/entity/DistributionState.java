@@ -1,14 +1,12 @@
 package com.example.distribute.model.entity;
 
+import com.example.distribute.model.enumclass.AllocatedStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
+import javax.persistence.*;
 
 @Data
 @AllArgsConstructor
@@ -19,4 +17,16 @@ public class DistributionState {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    private String token;
+
+    private Long allocatedMoney;
+
+    @Enumerated(EnumType.STRING)
+    private AllocatedStatus allocatedStatus;
+
+    private Integer allocatedUserId;
+
+    @ManyToOne
+    private Distribution distribution;
 }

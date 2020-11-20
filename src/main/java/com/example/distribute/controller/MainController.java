@@ -23,10 +23,10 @@ public class MainController {
 
     @PostMapping("")
     public Header<DistributeApiResponse> setDistribution(@RequestHeader("X-USER-ID") int userId, @RequestHeader("X-ROOM-ID") String roomId,
-                                                         @RequestBody DistributeApiRequest request) {
+                                                         @RequestBody DistributeApiRequest requestData) {
         log.info(userId + "");
         log.info(roomId);
-        return mainService.setDistribution(userId, roomId, request);
+        return mainService.setDistribution(userId, roomId, requestData);
     }
 
     @PutMapping("{token}")

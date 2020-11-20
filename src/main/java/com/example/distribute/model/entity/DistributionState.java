@@ -1,10 +1,8 @@
 package com.example.distribute.model.entity;
 
 import com.example.distribute.model.enumclass.AllocatedStatus;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
+import lombok.experimental.Accessors;
 
 import javax.persistence.*;
 
@@ -12,6 +10,8 @@ import javax.persistence.*;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
+@ToString(exclude = {"distribution"})
+@Accessors(chain = true)
 @Builder
 public class DistributionState {
     @Id

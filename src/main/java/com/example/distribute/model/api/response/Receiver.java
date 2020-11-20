@@ -9,7 +9,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class ReceiveApiResponse {
+public class Receiver {
+
+    private Integer userId;
 
     private Long allocatedMoney;
 }

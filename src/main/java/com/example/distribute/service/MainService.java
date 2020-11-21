@@ -6,6 +6,8 @@ import com.example.distribute.model.api.response.CheckApiResponse;
 import com.example.distribute.model.api.response.DistributeApiResponse;
 import com.example.distribute.model.api.response.ReceiveApiResponse;
 import com.example.distribute.model.entity.Distribution;
+import com.example.distribute.model.entity.DistributionState;
+import com.example.distribute.model.enumclass.AllocatedStatus;
 import com.example.distribute.repository.DistributionRepository;
 import com.example.distribute.repository.DistributionStateRepository;
 import lombok.RequiredArgsConstructor;
@@ -13,8 +15,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -34,11 +35,14 @@ public class MainService {
      * @return
      */
     public Header<DistributeApiResponse> setDistribution(int userId, String roomId, DistributeApiRequest requestData) {
+        String token = makeUniqueToken();
+
+        if(token == null)
+            return Header.ERROR("토큰 생성 실패. 다시 시도해주세요.");
+
         return Optional.ofNullable(requestData)
                 .map(data -> {
-                    String token = makeUniqueToken();
-
-                    if(token == null)
+                    if(data.getTotalDistributeNum() <= 0 || data.getTotalMoney() < data.getTotalDistributeNum())
                         return null;
 
                     Distribution distribution = Distribution.builder()
@@ -52,8 +56,31 @@ public class MainService {
 
                     return distribution;
                 })
-                .orElseGet(() -> Header.ERROR("데이터 생성 실패")); //response 만들면 에러 없어질
+                .map(newData -> distributionRepository.save(newData))
+                .map(newData -> {
+                    ArrayList<Long> allocatedMoneyList = allocateMoneyByDistributeNum(newData.getTotalMoney(), newData.getTotalDistributeNum());
 
+                    for(Long allocatedMoney : allocatedMoneyList) {
+                        DistributionState distributionState = DistributionState.builder()
+                                .token(newData.getToken())
+                                .allocatedMoney(allocatedMoney)
+                                .allocatedStatus(AllocatedStatus.UNALLOCATED)
+                                .distribution(newData)
+                                .build();
+
+                        distributionStateRepository.save(distributionState);
+                    }
+
+                    return newData.getToken();
+                }) //state 테이블에 입력
+                .map(newToken -> {
+                    DistributeApiResponse body = DistributeApiResponse.builder()
+                            .token(newToken)
+                            .build();
+
+                    return Header.OK(body);
+                }) //OK response
+                .orElseGet(() -> Header.ERROR("요청 데이터를 확인해주세요."));
     }
 
     public Header<ReceiveApiResponse> receiveDistribution(int userId, String roomId, String token) {
@@ -88,4 +115,31 @@ public class MainService {
             return null;
     }
 
+    /**
+     * 뿌린 돈을 뿌릴 인원만큼 랜덤하게 분배
+     * 50%, 25%, 12.5%.... 식으로 분배 후, 리스트안에서 shuffle
+     * @param money
+     * @param distributeNum
+     * @return
+     */
+    private ArrayList<Long> allocateMoneyByDistributeNum(long money, int distributeNum) {
+        ArrayList<Long> allocatedMoneyList = new ArrayList<>();
+
+        while(distributeNum != 0) {
+            if(distributeNum == 1) {
+                allocatedMoneyList.add(money);
+                break;
+            }
+            long allocateMoney = money / 2;
+
+            allocatedMoneyList.add(allocateMoney);
+            money = money - allocateMoney;
+
+            distributeNum--;
+        }
+
+        Collections.shuffle(allocatedMoneyList);
+
+        return allocatedMoneyList;
+    }
 }

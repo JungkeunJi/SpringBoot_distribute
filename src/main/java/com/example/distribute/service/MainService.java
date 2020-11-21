@@ -26,9 +26,7 @@ public class MainService {
 
     /**
      * 뿌리기 생성
-     * distribute 테이블에 뿌리기 데이터 저장 및 distribute_state 테이블에 뿌린 돈 분배 관련 상태 정보 저
-     * TODO. map 연결 시켜서 distribution_state에 데이터 생성, 뿌린돈 분배는 50프로씩 총인원 - 하면서 분배하고(최초는 소수점내림, 마지막 인원은 남은돈 전부)
-     * TODO. 분배돈 리스트 컬렉션 셔플 해서 무작위로 인원수만큼 레코드 insert
+     * distribute 테이블에 뿌리기 데이터 저장 및 distribute_state 테이블에 뿌린 돈 분배 관련 상태 정보 저장
      * @param userId
      * @param roomId
      * @param requestData
@@ -83,7 +81,49 @@ public class MainService {
                 .orElseGet(() -> Header.ERROR("요청 데이터를 확인해주세요."));
     }
 
+    /**
+     * 뿌린돈 받기
+     * 뿌리기 당 한번만 받을 수 있음 / 뿌리기 한 사람은 못받음 / 뿌리기 대화방에서만 가능 / 10분 지나면 못받음
+     * @param userId
+     * @param roomId
+     * @param token
+     * @return
+     */
     public Header<ReceiveApiResponse> receiveDistribution(int userId, String roomId, String token) {
+        Distribution distribution = distributionRepository.findFirstByToken(token).orElse(null);
+
+        if(distribution == null)
+            return Header.ERROR("데이터가 존재하지 않습니다.");
+        else if(distribution.getUserId() == userId)
+            return Header.ERROR("자신이 뿌리기한 건은 자신이 받을 수 없습니다.");
+        else if(!distribution.getRoomId().equals(roomId))
+            return Header.ERROR("해당 뿌리기 방에 존재하지 않는 사용자입니다.");
+        else if(LocalDateTime.now().isAfter(distribution.getRegisteredAt().plusMinutes(10)))
+            return Header.ERROR("해당 뿌리기는 유효시간이 초과하였습니다.");
+        else {
+            //해당 토큰으로 state 테이블 조회해서 userid에 자신이 있는지 확인
+            if(distributionStateRepository.findFirstByTokenAndAllocatedUserId(token, userId).isPresent())
+                return Header.ERROR("뿌리기 당 한번만 받을 수 있습니다.");
+            //없을 경우 하나 레코드를 상태값 update
+            distributionStateRepository.findFirstByTokenAndAllocatedStatus_Unallocated(token)
+                    .map(data -> {
+                        data.setAllocatedStatus(AllocatedStatus.ALLOCATED)
+                                .setAllocatedUserId(userId)
+                                ;
+
+                        return data;
+                    })
+                    .map(changeData -> distributionStateRepository.save(changeData))
+                    .map(changeData -> {
+                        ReceiveApiResponse body = ReceiveApiResponse.builder()
+                                .allocatedMoney(changeData.getAllocatedMoney())
+                                .build();
+
+                        return Header.OK(body);
+                    })
+                    .orElseGet(() -> Header.ERROR("해당 뿌리기는 모든 사용자가 이미 받았습니다."));
+        }
+
         return null;
     }
 

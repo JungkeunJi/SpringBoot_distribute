@@ -16,7 +16,7 @@ public class Header<T> {
     // api 통신 시간
     private LocalDateTime transactionTime;
 
-    //api 응답 코드 TODO 추후 HTTP 상태값으로 내려주기
+    //api 응답 코드
     private String resultCode;
 
     private String description;

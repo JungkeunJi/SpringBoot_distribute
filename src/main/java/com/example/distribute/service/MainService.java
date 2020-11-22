@@ -5,6 +5,7 @@ import com.example.distribute.model.api.request.DistributeApiRequest;
 import com.example.distribute.model.api.response.CheckApiResponse;
 import com.example.distribute.model.api.response.DistributeApiResponse;
 import com.example.distribute.model.api.response.ReceiveApiResponse;
+import com.example.distribute.model.api.response.Receiver;
 import com.example.distribute.model.entity.Distribution;
 import com.example.distribute.model.entity.DistributionState;
 import com.example.distribute.model.enumclass.AllocatedStatus;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -99,13 +101,13 @@ public class MainService {
         else if(!distribution.getRoomId().equals(roomId))
             return Header.ERROR("해당 뿌리기 방에 존재하지 않는 사용자입니다.");
         else if(LocalDateTime.now().isAfter(distribution.getRegisteredAt().plusMinutes(10)))
-            return Header.ERROR("해당 뿌리기는 유효시간이 초과하였습니다.");
+            return Header.ERROR("해당 뿌리기는 유효시간(10분)이 초과하였습니다.");
         else {
             //해당 토큰으로 state 테이블 조회해서 userid에 자신이 있는지 확인
             if(distributionStateRepository.findFirstByTokenAndAllocatedUserId(token, userId).isPresent())
                 return Header.ERROR("뿌리기 당 한번만 받을 수 있습니다.");
             //없을 경우 하나 레코드를 상태값 update
-            distributionStateRepository.findFirstByTokenAndAllocatedStatus_Unallocated(token)
+            return distributionStateRepository.findFirstByTokenAndAllocatedStatus_Unallocated(token)
                     .map(data -> {
                         data.setAllocatedStatus(AllocatedStatus.ALLOCATED)
                                 .setAllocatedUserId(userId)
@@ -123,12 +125,52 @@ public class MainService {
                     })
                     .orElseGet(() -> Header.ERROR("해당 뿌리기는 모든 사용자가 이미 받았습니다."));
         }
-
-        return null;
     }
 
+    /**
+     * 뿌린돈 조회
+     * 뿌린 사람만 조회 가능, 조회는 7일동안만 가능, [뿌린시각, 뿌린금액, 받기 완료된 금액, 받이 완료정보 리스트[받은 금액, 받은 사용자]]
+     * @param userId
+     * @param roomId
+     * @param token
+     * @return
+     */
     public Header<CheckApiResponse> checkDistribution(int userId, String roomId, String token) {
-        return null;
+        Distribution distribution = distributionRepository.findFirstByToken(token).orElse(null);
+
+        if(distribution == null)
+            return Header.ERROR("데이터가 존재하지 않습니다.");
+        else if(distribution.getUserId() != userId)
+            return Header.ERROR("뿌린 사람 자신만 조회할 수 있습니다.");
+        else if(LocalDateTime.now().isAfter(distribution.getRegisteredAt().plusDays(7)))
+            return Header.ERROR("뿌린 건에 대한 조회는 7일 동안만 가능합니다.");
+        else {
+            CheckApiResponse body = CheckApiResponse.builder()
+                    .registeredAt(distribution.getRegisteredAt())
+                    .totalMoney(distribution.getTotalMoney())
+                    .sumAllocatedMoney(
+                            distribution.getDistributionStates().stream()
+                                    .filter(distributionState -> distributionState.getAllocatedStatus().equals(AllocatedStatus.ALLOCATED))
+                                    .mapToLong(DistributionState::getAllocatedMoney)
+                                    .sum()
+                    )
+                    .receivers(
+                            distribution.getDistributionStates().stream()
+                                    .filter(distributionState -> distributionState.getAllocatedStatus().equals(AllocatedStatus.ALLOCATED))
+                                    .map(distributionState -> {
+                                        Receiver receiver = Receiver.builder()
+                                                .allocatedMoney(distributionState.getAllocatedMoney())
+                                                .userId(distributionState.getAllocatedUserId())
+                                                .build();
+
+                                        return receiver;
+                                    })
+                                    .collect(Collectors.toList())
+                    )
+                    .build();
+
+            return Header.OK(body);
+        }
     }
 
     /**

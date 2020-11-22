@@ -11,6 +11,7 @@
 - 다수의 인스턴스 서버에서 작동하기 위해서는 상태값 저장 및 조회를 위한 persistence가 필요(MySQL DB 사용)
 - 데이터 저장을 위한 2개의 테이블 존재(뿌리기 상태값 저장 테이블인 distribute와 뿌리기 돈 인원만큼 분배 저장 distribute_state 테이블)  
 - 두 테이블은 1:N 연관관계 매핑 (distribute(1) - distribute_state(N))
+- 스키마는 schema.sql를 통해 서버 실행 시 자동 생성(스키마가 존재하지 않을 경우)
 
 ##### 뿌리기 생성
 - POST method를 통한 뿌리기 데이터 생성

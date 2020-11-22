@@ -106,8 +106,8 @@ public class MainService {
             //해당 토큰으로 state 테이블 조회해서 userid에 자신이 있는지 확인
             if(distributionStateRepository.findFirstByTokenAndAllocatedUserId(token, userId).isPresent())
                 return Header.ERROR("뿌리기 당 한번만 받을 수 있습니다.");
-            //없을 경우 하나 레코드를 상태값 update
-            return distributionStateRepository.findFirstByTokenAndAllocatedStatus_Unallocated(token)
+            //없을 경우 아직 할당하지 않은 하나 레코드를 상태값 update
+            return distributionStateRepository.findFirstByTokenAndAllocatedStatus(token, AllocatedStatus.UNALLOCATED)
                     .map(data -> {
                         data.setAllocatedStatus(AllocatedStatus.ALLOCATED)
                                 .setAllocatedUserId(userId)
@@ -175,23 +175,25 @@ public class MainService {
 
     /**
      * UUID에서 substring을 통한 3자리 random 토큰 생성, 기존 레코드에 해당 token이 없을 경우 반환
+     * 해당 token이 레코드에 이미 있을경우, 토큰 재생성하여 재시도
      * @return
      */
     private String makeUniqueToken() {
         int maxRetryCount = 5;
         int retryCount = 0;
-        boolean find = true;
+        boolean capable = true;
         String randomUUID = UUID.randomUUID().toString().substring(0, 3);
 
-        while(!distributionRepository.findFirstByToken(randomUUID).isPresent()) {
+        while(distributionRepository.findFirstByToken(randomUUID).isPresent()) {
             if(retryCount >= maxRetryCount) {
-                find = false;
+                capable = false;
                 break;
             }
+            randomUUID = UUID.randomUUID().toString().substring(0, 3);
             retryCount++;
         }
 
-        if(find)
+        if(capable)
             return randomUUID;
         else
             return null;
